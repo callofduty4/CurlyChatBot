@@ -12,7 +12,6 @@
  * Licensed with GPL, please see LICENSE for more info.
  */
 
-#include "./netcode.h"
 #include "./curlychatbot.h"
 
 #define PASSWORD_PROMPT_CHARCOUNT 21
@@ -24,15 +23,25 @@ int main(int argc, char **argv)
 {
 	printf("Hello\n");
 	int res;
-	res = parse_cmd_input(argc, argv);
-	if (res)
+	Login_result login_res;
+	while (1)
 	{
-		exit(1);
-	}
-	res = login();
-	if (res)
-	{
-		exit(1);
+		res = parse_cmd_input(argc, argv);
+		if (res)
+		{
+			exit(1);
+		}
+		login_res = login();
+		if (login_res == FATALERROR)
+		{
+			exit(1);
+		}
+		if (login_res == SUCCESS)
+		{
+			break;
+		}
+		curl_slist_free_all(g_login_cookies);
+		free(g_username);
 	}
 	curl_global_cleanup();
 	return 0;
@@ -63,5 +72,10 @@ int parse_cmd_input(int argc, char **argv)
 	snprintf(prompt, sizeof(prompt), "Enter password for %s:", g_username);
 	prompt[numchars-1] = 0;
 	g_password = getpass(prompt);
+	if (*g_password == 0)
+	{
+		printf("Exiting\n");
+		return 1;
+	}
 	return 0;
 }

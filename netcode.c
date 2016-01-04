@@ -6,13 +6,14 @@
  * Output:	An HTTP_response_t struct containing the downloaded page source, the length
  *			of the response, and the cookies
  */
-HTTP_response_t make_GET_request(const char *URL)
+HTTP_response_t make_GET_request(const char *URL, struct curl_slist *cookies)
 {
 	CURL *curl_handle;
 	CURLcode res;
 	HTTP_response_t chunk;
 	chunk.memory = malloc(1);
 	chunk.size = 0;
+	chunk.success = 0;
 	chunk.cookies = NULL;
 	curl_global_init(CURL_GLOBAL_ALL);
 	// init the curl session
@@ -28,6 +29,11 @@ HTTP_response_t make_GET_request(const char *URL)
 	// give a useragent
 	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "CurlyChatBot/0.0.1");
 	// now we do the GET
+	while(cookies)
+	{
+		res = curl_easy_setopt(curl_handle, CURLOPT_COOKIELIST, cookies->data);
+		cookies = cookies->next;
+	}
 	res = curl_easy_perform(curl_handle);
 	// check errores
 	if (res != CURLE_OK)
@@ -45,6 +51,7 @@ HTTP_response_t make_GET_request(const char *URL)
 	}
 	// cleanup all
 	curl_easy_cleanup(curl_handle);
+	chunk.success = 1;
 	return chunk;
 }
 
@@ -55,7 +62,7 @@ HTTP_response_t make_GET_request(const char *URL)
  * Output:	An HTTP_response_t struct containing the downloaded page source, the length
  *			of the response, and the cookies
  */
-HTTP_response_t make_POST_request(const char *URL, const char *data_to_post)
+HTTP_response_t make_POST_request(const char *URL, const char *data_to_post, struct curl_slist *cookies)
 {
 	#ifdef DEBUG
 	printf("Posting %s\n", data_to_post);
@@ -68,6 +75,7 @@ HTTP_response_t make_POST_request(const char *URL, const char *data_to_post)
 	chunk.memory = malloc(1);
 	chunk.size = 0;
 	chunk.cookies = NULL;
+	chunk.success = 0;
 	curl_handle = curl_easy_init();
 	if (!curl_handle) {
 		// an error occurred in initialization.
@@ -77,6 +85,8 @@ HTTP_response_t make_POST_request(const char *URL, const char *data_to_post)
 	}
 	// setup the URL to POST to
 	curl_easy_setopt(curl_handle, CURLOPT_URL, URL);
+	// start cookie engine
+	curl_easy_setopt(curl_handle, CURLOPT_COOKIEFILE, "");
 	// set the data to POST
 	curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, data_to_post);
 	// set the length of the data to POST
@@ -87,6 +97,12 @@ HTTP_response_t make_POST_request(const char *URL, const char *data_to_post)
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)&chunk);
 	// give a useragent
 	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "CurlyChatBot/0.0.1");
+	// add cookies
+	while(cookies)
+	{
+		res = curl_easy_setopt(curl_handle, CURLOPT_COOKIELIST, cookies->data);
+		cookies = cookies->next;
+	}
 	res = curl_easy_perform(curl_handle);
 	if (res != CURLE_OK)
 	{
@@ -98,6 +114,7 @@ HTTP_response_t make_POST_request(const char *URL, const char *data_to_post)
 	}
 	chunk.cookies = get_cookies(curl_handle);
 	curl_easy_cleanup(curl_handle);
+	chunk.success = 1;
 	return chunk;
 }
 
@@ -106,13 +123,13 @@ HTTP_response_t make_POST_request(const char *URL, const char *data_to_post)
  * Input:	reponse, a pointer to a HTTP_response_t
  * Output:	nothing
  */
-void destroy_HTTP_response(HTTP_response_t *response)
+void destroy_HTTP_response(HTTP_response_t *response, Delete_options options)
 {
 	if (response->memory)
 	{
 		free(response->memory);
 	}
-	if (response->cookies)
+	if (response->cookies && !(options == KEEP_COOKIES))
 	{
 		curl_slist_free_all(response->cookies);
 	}
