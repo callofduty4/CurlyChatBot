@@ -29,7 +29,7 @@ Login_result login()
 	if (!token_response.success)
 	{
 		fprintf(stderr, "Login failed\n");
-		destroy_HTTP_response(&token_response, 0);
+		//destroy_HTTP_response(&token_response, 0);
 		free(login_data_buf);
 		return FATALERROR;
 	}

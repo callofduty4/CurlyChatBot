@@ -159,6 +159,11 @@ static size_t write_memory_callback(void *contents, size_t size, size_t nmemb, v
 	return actualsize;
 }
 
+/*
+ * Get a cookies list and return it
+ * Input:	curl_handle, containing all of the data pertaining to the request
+ * Output:	the list of cookies that were returned by the server
+ */
 static struct curl_slist *get_cookies(CURL *curl_handle)
 {
 	CURLcode res;

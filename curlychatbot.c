@@ -12,12 +12,15 @@
  * Licensed with GPL, please see LICENSE for more info.
  */
 
+#include <sys/types.h>
+#include <sys/wait.h>
 #include "./curlychatbot.h"
 
 #define PASSWORD_PROMPT_CHARCOUNT 21
 
 char* g_username;
 char* g_password;
+pid_list_t* g_pid_list_start;
 
 int main(int argc, char **argv)
 {
@@ -42,6 +45,35 @@ int main(int argc, char **argv)
 		}
 		curl_slist_free_all(g_login_cookies);
 		free(g_username);
+	}
+	res = start_clients(argc, argv);
+	switch (res)
+	{
+		case -1:
+		{
+			exit(1);
+		}
+		case 0:
+		{
+			// client process ended. let the process end.
+			return 0;
+		}
+		case 1:
+		{
+			// 
+			int i;
+			printf("Connected to: ");
+			for (i = 2; i < argc; i++)
+			{
+				printf("%s ", argv[i]);
+			}
+			printf("\n");
+		}
+	}
+	res = wait_for_clients();
+	if (res)
+	{
+		exit(1);
 	}
 	curl_global_cleanup();
 	return 0;
@@ -78,4 +110,126 @@ int parse_cmd_input(int argc, char **argv)
 		return 1;
 	}
 	return 0;
+}
+
+/*
+ * Starts all of the clients
+ * Input:	argc and argv
+ * Output:	1 on success, >1 on error. Client processes return 0
+ */
+int start_clients(int argc, char **argv)
+{
+	int i;
+	for (i = 2; i < argc; i++)
+	{
+		// TODO: start client processes
+		pid_t new_pid = fork();
+		if (new_pid == 0)
+		{
+			// in the client process
+			// TODO: startup the client
+			return 0;
+		}
+		if (new_pid < 0)
+		{
+			// there was an error
+			perror("fork");
+			return -1;
+		}
+		else
+		{
+			pid_list_t *client = (pid_list_t *)malloc(sizeof(pid_list_t));
+			client->pid = new_pid;
+			add_client(client);
+			return 1;
+		}
+	}
+}
+
+int wait_for_clients()
+{
+	while (g_pid_list_start)
+	{
+		pid_list_t *client = g_pid_list_start;
+		int status;
+		pid_t pid = waitpid(-1, &status, 0);
+		while (client)
+		{
+			if (client->pid == pid)
+			{
+				remove_client(client);
+				break;
+			}
+		}
+		if (!client)
+		{
+			// did not find the client in the list.
+			printf("Error: could not find client process id in client list\n");
+			return 1;
+		}
+	}
+	// all clients accounted for. We are all good
+	return 0;
+}
+/*
+ * Adds a client to the linked list
+ * Input:	client, the new client to add
+ * Output:	nothing
+ */
+void add_client(pid_list_t *client)
+{
+	// set the next of the new client to the (old) head of the list
+	client->next = g_pid_list_start;
+	// set the previous of the client to null; there is no previous
+	client->prev = 0;
+	if (g_pid_list_start != 0)
+	{
+		// if the list was not empty, set the previous of the old head to the new client
+		g_pid_list_start->prev = client;
+	}
+	// set the head of the list to the new client
+	g_pid_list_start = client;
+}
+
+/*
+ * Removes a client from the linked list
+ * Input:	client, the clinent to remove
+ */
+void remove_client(pid_list_t *client)
+{
+	pid_list_t *nextclient = client->next;
+	pid_list_t *prevclient = client->prev;
+	// case 1: prevclient = 0, nextclient != 0
+	// this means this is the first client in the list
+	if (!prevclient && nextclient)
+	{
+		// we just need to set the start of the free list to the next client, and 
+		// set the next client's previous pointer to 0.
+		g_pid_list_start = nextclient;
+		nextclient->prev = 0;
+	}
+	// case 2: prevclient != 0, nextclient = 0
+	// this means this is the last client in the list
+	if (prevclient && !nextclient)
+	{
+		// we just need to set the previous client's next pointer to 0.
+		prevclient->next = 0;
+	}
+	// case 3: prevclient != 0, nextclient != 0
+	// this means this client is in the middle of the list somewhere
+	if (prevclient && nextclient)
+	{
+		// set the previous block's next pointer to the next client, and the next client's
+		// previous pointer to the previous client.
+		prevclient->next = nextclient;
+		nextclient->prev = prevclient;
+	}
+	// case 4: prevclient = 0, nextclient = 0
+	// this means this is the only client in the list
+	if (!prevclient && !nextclient)
+	{
+		// just need to set the free_start pointer to 0.
+		g_pid_list_start = 0;
+	}
+	free(client);
 }
