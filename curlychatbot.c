@@ -47,6 +47,7 @@ int main(int argc, char **argv)
 		free(g_username);
 	}
 	res = start_clients(argc, argv);
+	/*
 	switch (res)
 	{
 		case -1:
@@ -69,6 +70,11 @@ int main(int argc, char **argv)
 			}
 			printf("\n");
 		}
+	}
+	*/
+	if (res)
+	{
+		exit(1);
 	}
 	res = wait_for_clients();
 	if (res)
@@ -119,6 +125,9 @@ int parse_cmd_input(int argc, char **argv)
  */
 int start_clients(int argc, char **argv)
 {
+	/*
+	This will be made to work with multiple wikis, but gdb doesn't like forked processes
+	right now.
 	int i;
 	for (i = 2; i < argc; i++)
 	{
@@ -128,6 +137,7 @@ int start_clients(int argc, char **argv)
 		{
 			// in the client process
 			// TODO: startup the client
+			start_connection(argv[i])
 			return 0;
 		}
 		if (new_pid < 0)
@@ -144,8 +154,15 @@ int start_clients(int argc, char **argv)
 			return 1;
 		}
 	}
+	*/
+	return start_connection(argv[2]);
 }
 
+/*
+ * Wait for all clients to finish before exiting
+ * Inputs:	None
+ * Output:	1 on error, 0 on success
+ */
 int wait_for_clients()
 {
 	while (g_pid_list_start)

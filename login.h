@@ -1,3 +1,4 @@
+#include <jansson.h>
 #include "./netcode.h"
 
 extern char* g_username;

@@ -2,6 +2,8 @@
 
 extern struct curl_slist *g_login_cookies;
 
+extern int start_connection(char* wiki_name);
+
 typedef struct pid_list
 {
 	pid_t pid;

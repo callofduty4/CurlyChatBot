@@ -1,4 +1,3 @@
-#include <jansson.h>
 #include "./login.h"
 
 #define LOGIN_URL_CHARCOUNT 45
