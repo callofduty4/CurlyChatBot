@@ -177,6 +177,7 @@ int wait_for_clients()
 				remove_client(client);
 				break;
 			}
+			client = client->next;
 		}
 		if (!client)
 		{
